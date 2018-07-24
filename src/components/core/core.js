@@ -13,6 +13,7 @@ import ContainerFactory from '../../components/container_factory'
 import Mediator from '../../components/mediator'
 import PlayerInfo from '../../components/player_info'
 import PlayerError from '../../components/error'
+import ErrorMixin from '../../base/error_mixin'
 
 import $ from 'clappr-zepto'
 
@@ -379,3 +380,5 @@ export default class Core extends UIObject {
     return this
   }
 }
+
+Object.assign(Core.prototype, ErrorMixin)

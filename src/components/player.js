@@ -10,6 +10,7 @@ import Browser from './browser'
 import CoreFactory from './core_factory'
 import Loader from './loader'
 import PlayerInfo from './player_info'
+import ErrorMixin from '../base/error_mixin'
 import $ from 'clappr-zepto'
 
 const baseUrl = currentScriptUrl().replace(/\/[^/]+$/, '')
@@ -220,6 +221,10 @@ export default class Player extends BaseObject {
    * E.g. onReady -> "PLAYER_READY", onTimeUpdate -> "PLAYER_TIMEUPDATE"
    * @param {PlaybackConfig} [options.playback]
    * Generic `Playback` component related configuration
+   * @param {Boolean} [options.disableErrorScreen]
+   * disables the error screen plugin.
+   * @param {Number} [options.autoPlayTimeout]
+   * autoplay check timeout.
    */
 
   constructor(options) {
@@ -312,9 +317,10 @@ export default class Player extends BaseObject {
   }
 
   _registerOptionEventListeners(newEvents = {}, events = {}) {
-    Object.keys(events).forEach((userEvent) => {
+    const hasNewEvents = Object.keys(newEvents).length > 0
+    hasNewEvents && Object.keys(events).forEach((userEvent) => {
       const eventType = this.eventsMapping[userEvent]
-      eventType && this.off(eventType)
+      eventType && this.off(eventType, events[userEvent])
     })
 
     Object.keys(newEvents).forEach((userEvent) => {
@@ -616,3 +622,5 @@ export default class Player extends BaseObject {
     return this.core.activeContainer.getDuration()
   }
 }
+
+Object.assign(Player.prototype, ErrorMixin)

@@ -8,6 +8,7 @@
 
 import Events from '../../base/events'
 import UIObject from '../../base/ui_object'
+import ErrorMixin from '../../base/error_mixin'
 
 import './public/style.scss'
 
@@ -272,7 +273,7 @@ export default class Container extends UIObject {
     if (!this.isReady)
       this.ready()
 
-    this.trigger(Events.CONTAINER_ERROR, Object.assign(error, { container: this }), this.name)
+    this.trigger(Events.CONTAINER_ERROR, error, this.name)
   }
 
   loadedMetadata(metadata) {
@@ -466,6 +467,7 @@ export default class Container extends UIObject {
   configure(options) {
     this._options = $.extend(this._options, options)
     this.updateStyle()
+    this.playback.configure(this.options)
     this.trigger(Events.CONTAINER_OPTIONS_CHANGE)
   }
 
@@ -475,3 +477,5 @@ export default class Container extends UIObject {
     return this
   }
 }
+
+Object.assign(Container.prototype, ErrorMixin)

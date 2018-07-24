@@ -2,12 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-import { isNumber, seekStringToSeconds, DomRecycler } from '../../base/utils'
+import { isNumber, seekStringToSeconds, DomRecycler, canAutoPlayMedia } from '../../base/utils'
 
 import Playback from '../../base/playback'
 import Browser from '../../components/browser'
 import PlayerError from '../../components/error'
 import Events from '../../base/events'
+import Log from '../../plugins/log'
 import $ from 'clappr-zepto'
 import template from '../../base/template'
 import tracksHTML from './public/tracks.html'
@@ -140,8 +141,32 @@ export default class HTML5Video extends Playback {
 
     playbackConfig.externalTracks && (this._setupExternalTracks(playbackConfig.externalTracks))
 
-    // https://github.com/clappr/clappr/issues/1076
-    this.options.autoPlay && process.nextTick(() => !this._destroyed && this.play())
+    this.options.autoPlay && this.attemptAutoPlay()
+  }
+
+  // See Playback.attemptAutoPlay()
+  attemptAutoPlay() {
+    this.canAutoPlay((result, error) => {
+      error && Log.warn(this.name, 'autoplay error.', { result, error })
+
+      // https://github.com/clappr/clappr/issues/1076
+      result && process.nextTick(() => !this._destroyed && this.play())
+    })
+  }
+
+  // See Playback.canAutoPlay()
+  canAutoPlay(cb) {
+    if (Browser.isMobile) {
+      // Mobile browser autoplay require user consent and video recycling feature enabled
+      cb(this.consented && DomRecycler.options.recycleVideo, null)
+    } else {
+      // Desktop browser autoplay policy may require user action
+      canAutoPlayMedia(cb, {
+        timeout: this.options.autoPlayTimeout || 500,
+        inline: this.options.playback.playInline || false,
+        muted: this.options.mute || false, // Known issue: mediacontrols may asynchronously mute video
+      })
+    }
   }
 
   _setupExternalTracks(tracks) {
@@ -215,7 +240,10 @@ export default class HTML5Video extends Playback {
   // On mobile device, HTML5 video element "retains" user action consent if
   // load() method is called. See Player.consent().
   consent() {
-    !this.isPlaying() && this.el.load()
+    if (!this.isPlaying()) {
+      super.consent()
+      this.el.load()
+    }
   }
 
   play() {
@@ -251,8 +279,8 @@ export default class HTML5Video extends Playback {
     } else {
       this.$el.attr({ muted: null })
       this.el.muted = false
+      this.el.volume = value / 100
     }
-    this.el.volume = value / 100
   }
 
   /**
@@ -387,21 +415,25 @@ export default class HTML5Video extends Playback {
 
   _onError() {
     const { code, message } = this.el.error || UNKNOWN_ERROR
+    const isUnknownError = code === UNKNOWN_ERROR.code
 
     const formattedError = this.createError({
       code,
       description: message,
       raw: this.el.error,
-      level: code === UNKNOWN_ERROR.code ? PlayerError.Levels.WARN : PlayerError.Levels.FATAL
+      level: isUnknownError ? PlayerError.Levels.WARN : PlayerError.Levels.FATAL
     })
 
-    this.trigger(Events.PLAYBACK_ERROR, formattedError)
+    if (isUnknownError)
+      Log.warn(this.name, 'HTML5 unknown error: ', formattedError)
+    else
+      this.trigger(Events.PLAYBACK_ERROR, formattedError)
   }
 
   destroy() {
     this._destroyed = true
     this.handleTextTrackChange && this.el.textTracks.removeEventListener('change', this.handleTextTrackChange)
-    this.$el.remove()
+    super.destroy()
     this.el.removeAttribute('src')
     this._src = null
     DomRecycler.garbage(this.$el)

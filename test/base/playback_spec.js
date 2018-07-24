@@ -27,9 +27,15 @@ describe('Playback', function() {
     expect(this.basePlayback.isHighDefinitionInUse()).to.be.equal(false)
   })
 
+  it('can be consented', () => {
+    expect(this.basePlayback.consented).to.be.equal(false)
+    this.basePlayback.consent()
+    expect(this.basePlayback.consented).to.be.equal(true)
+  })
+
   it('destroys by removing element from DOM', () => {
     const spy = sinon.spy()
-    this.basePlayback.$el = { remove: spy }
+    this.basePlayback.$el = { remove: spy, off: () => {} }
 
     this.basePlayback.destroy()
 
@@ -105,6 +111,14 @@ describe('Playback', function() {
         expect(errorData.level).to.deep.equal(PlayerError.Levels.WARN)
       })
 
+      it('does not overwrite code when useCodePrefix is false', () => {
+        const error = { code: 'MY_CODE' }
+        const options = { useCodePrefix: false }
+        const errorData = this.basePlayback.createError(error, options)
+
+        expect(errorData.code).to.equal(error.code)
+      })
+
       describe('when i18n is defined', () => {
         beforeEach(() => {
           this.basePlayback = new Playback({}, this.core.i18n, this.core.playerError)
@@ -142,7 +156,7 @@ describe('Playback', function() {
         raw: {},
         code: 'playback:unknown',
       }
-      const spy = sinon.spy(this.playerError, 'error')
+      const spy = sinon.spy(this.playerError, 'createError')
       this.basePlayback.createError()
 
       expect(spy).to.have.been.calledWith(defaultError)
